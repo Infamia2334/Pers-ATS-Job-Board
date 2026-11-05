@@ -43,7 +43,8 @@ DEFAULTS = {
                               r"|sales|marketing|gtm|recruiter|legal|finance|counsel|designer|copywriter"
                               r"|customer success|support engineer|architect|intern|director|principal"
                               r"|manager|vp|head of|distinguished|lead|senior|sr"
-                              r"|staff(?: \w[\w-]*){0,2} engineer|staff sde|staff swe)\b",
+                              r"|staff(?: \w[\w-]*){0,2} engineer|staff sde|staff swe|java|core ml"
+                              r"|(?:ml|machine learning) (?:engineer|developer|dev))\b",
         "location_include_keywords": [],
         "location_include_regex": r"\b(bengaluru|bangalore|gurgaon|gurugram|india|remote|global"
                                   r"|anywhere|apac|emea|singapore|bangkok|thailand|amsterdam"
@@ -80,6 +81,7 @@ DEFAULTS = {
     },
     "enrich": {
         "model": "gemini-3.5-flash-lite",
+        "fallback_models": ["gemini-3.1-flash-lite", "gemini-2.5-flash-lite"],
         "key": "",
         "key_file": ".env",
         "max_jobs": 60,
@@ -233,6 +235,10 @@ def _resolve_enrich_key():
 ENRICH_API_KEY = _resolve_enrich_key()
 ENRICH_MODEL = str(CFG["enrich"].get("model", "gemini-2.5-flash-lite")).strip() \
     .replace("/", "")
+# Redundancy chain: tried in order after ENRICH_MODEL, first success wins.
+ENRICH_FALLBACK_MODELS = [str(m).strip().replace("/", "")
+                          for m in CFG["enrich"].get("fallback_models", [])
+                          if str(m).strip()]
 ENRICH_MAX_JOBS = int(CFG["enrich"].get("max_jobs", 60))
 ENRICH_CONCURRENCY = int(CFG["enrich"].get("concurrency", 5))
 ENRICH_TIMEOUT = int(CFG["enrich"].get("timeout_seconds", 25))

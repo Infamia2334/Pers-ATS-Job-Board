@@ -46,8 +46,15 @@ role_include_regex = '\b(backend|back-end|software engineer|member of technical 
 # Engineer, or Staff SDE/SWE) but NOT bare `staff`: a bare `staff` branch
 # would also kill mid-level "Member of Technical Staff" titles. Extend the
 # `{0,2}` count if you ever see "Staff A B C Engineer" slipping through.
+# The java branch kills any title NAMED after Java (Java Developer, Java
+# Software Engineer, "Backend (Java)") — safe because this regex only ever
+# sees the title, never the description stack. `(?:ml|machine learning)
+# engineer` kills the generic ML-modeling title family; infra-flavored
+# titles ("ML Runtime and Kernel Engineer", "ML Ops Engineer", "Machine
+# Learning & Cloud Infra Engineer") survive because of the word(s) between
+# "ml/ML" and "engineer".
 role_exclude_keywords = []
-role_exclude_regex = '\b(ios|android|mobile|frontend only|front-end only|account executive|sales|marketing|gtm|recruiter|legal|finance|counsel|designer|copywriter|customer success|support engineer|architect|intern|director|principal|manager|vp|head of|distinguished|lead|senior|sr|staff(?: \w[\w-]*){0,2} engineer|staff sde|staff swe)\b'
+role_exclude_regex = '\b(ios|android|mobile|frontend only|front-end only|account executive|sales|marketing|gtm|recruiter|legal|finance|counsel|designer|copywriter|customer success|support engineer|architect|intern|director|principal|manager|vp|head of|distinguished|lead|senior|sr|staff(?: \w[\w-]*){0,2} engineer|staff sde|staff swe|java|core ml|(?:ml|machine learning) (?:engineer|developer|dev))\b'
 
 # The posting's location must match this AND NOT match location_exclude.
 location_include_keywords = []
@@ -229,7 +236,12 @@ preview_count = 20
 # degrade silently to blank columns.
 # -----------------------------------------------------------------------------
 [enrich]
-model = "gemini-3.5-flash-lite"
+model = "gemini-3.1-flash-lite"
+# Redundancy chain — tried in order if `model` fails (429/5xx/timeout/dead
+# model), first success wins. Keep at least one older Flash Lite here.
+# (gemini-2.5-flash-lite now 404s for NEW keys — kept as the last resort;
+# an older key makes it live again.)
+fallback_models = ["gemini-3.5-flash-lite", "gemini-2.5-flash-lite"]
 # API key — safe options, in precedence order:
 #   1. env GEMINI_API_KEY (export in your shell / ~/.zshrc) — wins over both below
 #   2. key_file below: a gitignored .env file at the repo root containing
@@ -240,7 +252,7 @@ model = "gemini-3.5-flash-lite"
 #      warning. Prefer 1 or 2.
 key = ""
 key_file = ".env"
-max_jobs = 60              # annotation cap per scrape (quota safety)
+max_jobs = 250             # annotation cap per scrape (quota safety)
 concurrency = 5            # small pool so a flood of new jobs doesn't 429
 timeout_seconds = 25
 max_desc_chars = 6000      # description text handed to the model

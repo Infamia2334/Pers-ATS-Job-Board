@@ -42,6 +42,10 @@ deterministic filters:
 - only rows new since the last scrape are annotated (the previous scrape's
   annotations carry forward), calls are capped per run (`[enrich].max_jobs`),
   and failures degrade to blank cells.
+- model redundancy: annotation tries `[enrich].model` first, then each
+  `[enrich].fallback_models` entry in order, first success wins — so a
+  rate-limited or retired Flash Lite (e.g. 2.5, now closed to new keys)
+  degrades to the next one in the chain before giving up on the row.
 - the key is read from the environment or a gitignored `.env` file (see
   `.env.example`) — never put it in `config.toml`; that file is public.
 

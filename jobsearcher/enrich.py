@@ -16,6 +16,10 @@ Design ground rules:
   snapshot adopt the previous annotation unchanged (no repeat spend); the
   per-run annotation count is capped by [enrich].max_jobs, and rows past
   the cap stay blank and get annotated on a later run.
+- Model redundancy: annotation tries [enrich].model first, then each
+  [enrich].fallback_models entry in order, first success wins — a retired
+  or rate-limited model degrades to the next Flash Lite in the chain, and
+  blanks only when the entire chain fails.
 - Only description-holding rows are annotated (ATS boards + HN/RemoteOK/
   WWR/Zoho). YC and LinkedIn guest cards have no JD text and stay blank.
 - Failures degrade to blank fields — same silent-failure philosophy as
@@ -31,6 +35,7 @@ imports an external package (requirements.txt: google-genai).
 
 import json
 import sys
+import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 try:
@@ -40,8 +45,9 @@ except ImportError:
     genai_sdk = None
     gtypes = None
 
-from .config import (ENRICH_API_KEY, ENRICH_CONCURRENCY, ENRICH_MAX_DESC_CHARS,
-                     ENRICH_MAX_JOBS, ENRICH_TIMEOUT, ENRICH_MODEL)
+from .config import (ENRICH_API_KEY, ENRICH_CONCURRENCY, ENRICH_FALLBACK_MODELS,
+                     ENRICH_MAX_DESC_CHARS, ENRICH_MAX_JOBS, ENRICH_TIMEOUT,
+                     ENRICH_MODEL)
 
 # Official SDK client; key from jobsearcher/config._resolve_enrich_key().
 _AVAILABLE_KEY = bool(ENRICH_API_KEY)
@@ -66,8 +72,12 @@ experience and targets remote-first backend / platform / AI-infra /
 distributed-systems roles. Read the posting below and return ONLY a
 compact JSON object, no markdown, in exactly this shape:
 
-{"stated_yoe": <integer or null — the LEAST years of experience the
-   posting asks for, only when a number of years is actually stated>,
+{"stated_yoe": <integer or null — scan the whole posting for years of
+   experience (digits or words: "3+ years", "two years", "2-4 years",
+   "at least 5 yrs"). For a range or "X or more", give the LOWER bound.
+   Use the overall professional/relevant experience figure, not years for
+   one niche skill if an overall one exists. null only if no number of
+   years appears anywhere>,
  "yoe_stance": "<required|preferred|unmentioned>",
  "remote_policy": "<remote-global|remote-region|hybrid|onsite|unclear>",
  "salary": "<salary exactly as stated, e.g. \\"$120,000-$150,000\\"; empty
@@ -106,7 +116,11 @@ def _parse_json(text: str) -> dict | None:
 def _fill(row: dict, data: dict) -> None:
     yoe = data.get("stated_yoe")
     stance = str(data.get("yoe_stance") or "unmentioned").strip()
-    row["AI_YOE"] = (f"{int(yoe)} {stance}" if isinstance(yoe, int)
+    try:
+        yoe = int(float(yoe)) if yoe is not None and not isinstance(yoe, bool) else None
+    except (TypeError, ValueError):
+        yoe = None
+    row["AI_YOE"] = (f"{yoe} {stance}" if yoe is not None
                      and 0 <= yoe <= 20 else "n/a")
     row["AI_Remote"] = str(data.get("remote_policy") or "").strip() \
         .lower().replace(" ", "-")
@@ -122,22 +136,33 @@ def _fill(row: dict, data: dict) -> None:
 
 
 def _annotate(row: dict) -> None:
-    """One API call; fills AI_* on `row`. Any failure leaves them blank."""
-    try:
-        resp = _CLIENT.models.generate_content(
-            model=ENRICH_MODEL,
-            contents=[_payload_text(row)],
-            config=gtypes.GenerateContentConfig(
-                temperature=0,
-                response_mime_type="application/json",
-                max_output_tokens=500),
-        )
-    except Exception:  # 429/5xx/timeout/unit errors — degrade to blanks
-        return
-    data = resp.parsed if isinstance(getattr(resp, "parsed", None), dict) \
-        else _parse_json(getattr(resp, "text", ""))
-    if data:
-        _fill(row, data)
+    """One row, up to len(model chain) API calls; fills AI_* on `row`.
+
+    Tries [enrich].model first, then each [enrich].fallback_models entry in
+    order; first success wins. Any failure on every model leaves them
+    blank. Transient per-model failures (429/5xx/timeout) and retired
+    model IDs both degrade to the next candidate instead of dropping the
+    annotation.
+    """
+    for model in [ENRICH_MODEL, *ENRICH_FALLBACK_MODELS]:
+        if ENRICH_FALLBACK_MODELS and model != ENRICH_MODEL:
+            time.sleep(1)   # brief backoff before a degraded-model retry
+        try:
+            resp = _CLIENT.models.generate_content(
+                model=model,
+                contents=[_payload_text(row)],
+                config=gtypes.GenerateContentConfig(
+                    temperature=0,
+                    response_mime_type="application/json",
+                    max_output_tokens=500),
+            )
+        except Exception:   # 429/5xx/timeout/unit error — try next model
+            continue
+        data = resp.parsed if isinstance(getattr(resp, "parsed", None), dict) \
+            else _parse_json(getattr(resp, "text", ""))
+        if data:
+            _fill(row, data)
+            return
 
 
 def enrich_jobs(rows: list, prev_by_url: dict | None = None) -> tuple:
