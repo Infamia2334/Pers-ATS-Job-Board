@@ -1,0 +1,7 @@
+# Generated output
+Live_Openings_Feed.csv
+__pycache__/
+*.pyc
+
+# Personal documents — resume, applications, offers, IDs (never push)
+work/

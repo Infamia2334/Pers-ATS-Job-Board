@@ -1,0 +1,213 @@
+# =============================================================================
+# Job Discovery Engine — configuration
+#
+# This file is the single source of truth for the scraper and the web UI.
+# Edit it, then re-run the script. No code changes needed. Anything wrong
+# here (bad regex, dead slug) fails silently in the results — so after
+# changing board lists run:  python3 discover_jobs.py --verify
+#
+# Escapes: values in 'single quotes' are taken literally (backslashes and
+# regexes stay as-is). Values in "double quotes" process escapes like \n.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Personal profile — who the feed is tuned for, and which resume to recommend.
+# -----------------------------------------------------------------------------
+[profile]
+name = ""
+# Shown in the web UI header. `summary` is documentation for future-you.
+headline = "Live engineering openings — auto-scraped and filtered"
+summary = ""
+# Postings stating a requirement above this number of years are dropped.
+# Strict mode: "4+ years preferred" is dropped just like "4+ years required".
+years_experience = 2
+# Master resume for the Recommended_PDF column. Keep personal resume paths
+# out of the published config — point resume_pdf at a generic local path;
+# the file itself lives in the gitignored work/ directory.
+resume_pdf = "work/Resume/resume.pdf"
+
+# -----------------------------------------------------------------------------
+# Filters — what counts as "a job I want".
+#
+# Every value is a case-insensitive regex (single-quoted, so no escaping hell).
+# role/location *_keywords lists are OR-joined into word-boundary regexes and
+# OVERRIDE the *_regex values when non-empty — use whichever is convenient:
+#   keywords = simple word lists (recommended for quick edits)
+#   regex    = full control, used as-is when the keyword list is empty
+# -----------------------------------------------------------------------------
+[filters]
+# A posting's title must match this AND NOT match role_exclude.
+role_include_keywords = []
+role_include_regex = '\b(backend|back-end|software engineer|member of technical staff|mts|platform|distributed|infrastructure|infra|ai engineer|ai infra|machine learning|ml|llm|systems engineer|sde|product engineer|full[- ]?stack|server|founding|python|node|typescript)\b'
+
+# Excludes seniority titles (senior/staff/lead/principal/…) because of the
+# ~2 YOE profile — do not remove them. The staff branch matches up to two
+# words between "staff" and "engineer" (Staff Software/Product/Data/…/
+# Engineer, or Staff SDE/SWE) but NOT bare `staff`: a bare `staff` branch
+# would also kill mid-level "Member of Technical Staff" titles. Extend the
+# `{0,2}` count if you ever see "Staff A B C Engineer" slipping through.
+role_exclude_keywords = []
+role_exclude_regex = '\b(ios|android|mobile|frontend only|front-end only|account executive|sales|marketing|gtm|recruiter|legal|finance|counsel|designer|copywriter|customer success|support engineer|architect|intern|director|principal|manager|vp|head of|distinguished|lead|senior|sr|staff(?: \w[\w-]*){0,2} engineer|staff sde|staff swe)\b'
+
+# The posting's location must match this AND NOT match location_exclude.
+location_include_keywords = []
+location_include_regex = '\b(bengaluru|bangalore|gurgaon|gurugram|india|remote|global|anywhere|apac|emea|singapore|bangkok|thailand|amsterdam|netherlands|berlin|munich|germany|london|uk|tallinn|estonia|dublin|stockholm|tokyo|japan|europe)\b'
+
+# Two branches: the bounded list, and a boundary-free `remote … u.s.` matcher
+# ("Remote (US)" ends on ")" which has no trailing \b — the boundary-free
+# version is required to catch it).
+location_exclude_regex = '\b(us only|us-only|united states only|us-remote|americas only|canada only|brazil|mexico)\b|remote\s*[(\[]?\s*-?\s*u\.?\.?\.?\s*[)\]]?'
+
+# Years-of-experience cap. Matches description text like "3+ years",
+# "5 years", "3-5 years"; the lower bound is what disqualifies.
+max_years_experience = 2
+
+# Sort priority, highest tier first — a posting matching an earlier tier's
+# keyword sorts above later tiers. Order of the outer list is the priority.
+location_priority_tiers = [
+    ["remote", "global", "anywhere"],
+    ["bengaluru", "bangalore", "gurgaon", "gurugram", "india"],
+    ["bangkok", "singapore", "amsterdam", "berlin", "tallinn", "tokyo", "london"],
+]
+
+# -----------------------------------------------------------------------------
+# ATS boards.
+#
+# Slugs are the ATS's URL slug exactly (e.g. `convex-dev` for Convex on Ashby,
+# `grafanalabs` for Grafana on Greenhouse). Casing varies per API and wrong
+# slugs fail silently — re-run `python3 discover_jobs.py --verify` after every
+# change: 404 = dead slug, 0 postings = empty.
+# -----------------------------------------------------------------------------
+[boards.ashby]
+enabled = true
+boards = [
+    "cardboard", "composio", "sarvam", "supabase", "posthog", "linear",
+    "resend", "twenty", "inngest", "neon", "railway", "render", "modal",
+    "baseten", "fireworks", "perplexity", "elevenlabs", "deepgram",
+    "retell-ai", "vapi", "bland", "browserbase", "e2b", "exa", "mem0",
+    "braintrust", "ema", "sierra", "decagon", "harvey",
+    "Ramp", "deel", "weaviate", "mastra",
+    "cerebras", "lambda", "runpod", "plaid", "cohere", "openrouter",
+    # (cal/trigger/upstash/together/helicone/arize/patronus/zep/qdrant/
+    #  chroma/turso/cline/continue all 404'd — migrated off Ashby)
+    "attio", "prefect", "airbyte", "antimetal", "convex-dev",
+    # Some slugs were 0 rows on day one but post backend roles regularly.
+    "motherduck",      # DuckDB's commercial cloud — data infra, remote
+    "sequence",        # payments/platform engineering
+    "cursor",          # Anysphere — AI code editor, large eng board
+    "livekit",         # WebRTC/realtime video infra
+    "workos",          # auth/SSO API
+    "float",           # resource-planning SaaS
+    "numeral",         # sales-tax API
+    "primeintellect",  # decentralized AI compute
+    "pinecone",        # vector DB
+    "replit",          # cloud IDE/BaaS
+    "factory",         # AI software-engineering agents
+    "cognition",       # Devin — AI coding agents
+]
+
+[boards.greenhouse]
+enabled = true
+boards = [
+    "stripe", "cloudflare", "datadog", "mongodb", "cockroachlabs",
+    "grafanalabs", "gitlab", "canonical", "brave",
+    "Tailscale", "planetscale", "elastic",
+    "algolia", "twilio", "okta", "adyen", "wise", "monzo", "n26",
+    "hellofresh", "agoda", "coupang",
+    "fivetran", "moniepoint", "attentive", "instacart",
+    # (razorpay/postman/browserstack/chargebee/temporal/automattic/
+    #  clickhouse/confluent/auth0/mollie/checkout/zalando/deliveryhero/
+    #  grab/carousell/goto/wovenbytoyota all 404'd — migrated off Greenhouse)
+    "mercury",     # fintech, several global-remote eng roles
+    "singlestore",
+    "vercel",
+]
+
+[boards.lever]
+enabled = true
+boards = [
+    "palantir", "spotify", "zoox", "meesho", "cred",
+    # (bolt/netflix/klarna/revolut/paypay/rakuten/swiggy/groww/zepto/juspay/
+    #  cashfree/moengage/clevertap/gupshup 404'd — migrated off Lever;
+    #  yellow.ai uses Zoho Recruit — see feeds.zoho_sites)
+    "nium", "finix",
+]
+
+# Company-level filtering, applied to every source (ATS + aggregator feeds).
+# Match is case-insensitive against the company name shown in the feed — for
+# Ashby/Greenhouse/Lever that is the URL slug in Title Case (e.g. "Lambda",
+# "Tailscale", "Cerebras"); for the feeds it is the poster's name.
+[boards.companies]
+# When non-empty, ONLY these companies' rows are kept (allow-list).
+keep = []
+# Always drop these companies' rows (overrules keep).
+drop = []
+
+# -----------------------------------------------------------------------------
+# Non-ATS feeds. Every source fails silently when its endpoint misbehaves.
+# Each boolean switches a source on/off. Set `enabled = false` to skip it.
+# -----------------------------------------------------------------------------
+[feeds.yc]
+enabled = true  # YC Work at a Startup — guest access serves ONE fixed
+                # ~30-job sample (no descriptions, so YOE shows n/a).
+
+[feeds.hn]
+enabled = true  # HN "Who is hiring?" via the Algolia API — seed-stage heavy.
+
+[feeds.remoteok]
+enabled = true  # RemoteOK /api — last 100 postings; empty location defaults
+                # to "Remote (Global)".
+
+[feeds.weworkremotely]
+enabled = true
+# RSS category feeds on weworkremotely.com.
+feeds = [
+    "remote-full-stack-programming-jobs",
+    "remote-programming-jobs",
+]
+
+[feeds.linkedin]
+enabled = true  # LinkedIn guest cards — heavily rate-limited without cookies
+                # (expect 429s and zero rows on some runs). ONE request per
+                # query; do NOT add per-job detail fetches, they trip the
+                # limiter. No descriptions, so YOE shows n/a.
+queries = [
+    "https://www.linkedin.com/jobs-guest/jobs/api/seeMoreJobPostings/search?keywords=backend%20engineer&location=Bengaluru%2C%20India&start=0",
+    "https://www.linkedin.com/jobs-guest/jobs/api/seeMoreJobPostings/search?keywords=backend%20engineer&location=Berlin%2C%20Germany&start=0",
+    "https://www.linkedin.com/jobs-guest/jobs/api/seeMoreJobPostings/search?keywords=ai%20infrastructure%20engineer&location=Worldwide&start=0",
+]
+
+[feeds.zoho]
+enabled = true  # Zoho Recruit careers sites, listed via the public endpoint
+                # the official embed_jobs.js widget calls:
+                #   {site}/recruit/v2/public/Job_Openings?pagename=…
+                # To add an employer: read site/page_name from the
+                # rec_embed_js.load(...) snippet in its careers-page HTML.
+                # Format per entry:  "company | site | page_name"
+sites = [
+    "yellow.ai | https://careers.yellow.ai | Careers",
+]
+
+# -----------------------------------------------------------------------------
+# Runtime settings.
+# -----------------------------------------------------------------------------
+[run]
+# Drop overlapping postings: rows whose apply URL was already seen, plus
+# rows repeating the same source + company + title + location (the two
+# WWR category feeds overlap heavily, and boards occasionally list the
+# same req twice). Same title at DIFFERENT locations stays — those are
+# separate requisitions with separate apply links.
+dedup = true
+# Worker threads for concurrent board fetches. The scrape hits ~110 live
+# endpoints total; Lever is slow server-side (10-40 s on big boards like
+# palantir) and dominates wall-clock time above ~40 workers.
+max_workers = 40
+timeout_seconds = 15
+# Web UI (python3 discover_jobs.py --web / ./start.sh).
+web_port = 8000            # env WEB_PORT overrides
+cache_ttl_seconds = 600    # stale scrape is refreshed silently in background
+# CSV mode output; "" = Live_Openings_Feed.csv next to the script.
+# env LIVE_FEED_PATH overrides either.
+live_feed_path = ""
+# How many rows the CSV-mode console preview prints (one per company).
+preview_count = 20
