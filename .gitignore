@@ -8,3 +8,8 @@ data/
 
 # Personal documents — resume, applications, offers, IDs (never push)
 work/
+
+# Local env files (API keys etc. never commit)
+.env
+*.env
+*.swp

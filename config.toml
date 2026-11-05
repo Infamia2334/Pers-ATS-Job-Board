@@ -229,7 +229,17 @@ preview_count = 20
 # degrade silently to blank columns.
 # -----------------------------------------------------------------------------
 [enrich]
-model = "gemini-2.5-flash-lite"
+model = "gemini-3.5-flash-lite"
+# API key — safe options, in precedence order:
+#   1. env GEMINI_API_KEY (export in your shell / ~/.zshrc) — wins over both below
+#   2. key_file below: a gitignored .env file at the repo root containing
+#      GEMINI_API_KEY=... (see .env.example) — RECOMMENDED if you don't
+#      want it in your shell rc. Quotes around the value are tolerated.
+#   3. key: inline in this file — the file IS committed/pushed, so this is
+#      only safe for local copies you never push; the runtime prints a loud
+#      warning. Prefer 1 or 2.
+key = ""
+key_file = ".env"
 max_jobs = 60              # annotation cap per scrape (quota safety)
 concurrency = 5            # small pool so a flood of new jobs doesn't 429
 timeout_seconds = 25

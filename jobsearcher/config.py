@@ -12,6 +12,8 @@ the file's values, so only keys missing from the TOML get defaults.
 import html
 import os
 import re
+import shutil
+import subprocess
 import sys
 import tomllib
 
@@ -77,7 +79,9 @@ DEFAULTS = {
         "preview_count": 20,
     },
     "enrich": {
-        "model": "gemini-2.5-flash-lite",
+        "model": "gemini-3.5-flash-lite",
+        "key": "",
+        "key_file": ".env",
         "max_jobs": 60,
         "concurrency": 5,
         "timeout_seconds": 25,
@@ -170,8 +174,63 @@ LIVE_FEED_PATH_CFG = str(_RUN.get("live_feed_path", "") or "")
 PREVIEW_COUNT = int(_RUN.get("preview_count", 20))
 
 # -- enrich (optional Gemini Flash-Lite JD annotation) -------------------
-# OFF unless GEMINI_API_KEY is in the environment — the key is never read
-# from config.toml, which ships to the public repo.
+# OFF unless an API key resolves (see _resolve_enrich_key). The key is
+# never committed: config.toml ships to the public repo, so the key lives
+# in the env var, in a gitignored .env file, or (worst, warned) inline.
+def _resolve_enrich_key():
+    """API key resolution order: env GEMINI_API_KEY > [enrich].key (loud
+    public-file warning) > [enrich].key_file (.env) contents."""
+    env = os.environ.get("GEMINI_API_KEY", "").strip()
+    if env:
+        return env
+    # Inline TOML key: supported for local testing, but config.toml is
+    # committed — one scrub-less push would leak the key publicly.
+    inline = str(CFG["enrich"].get("key", "") or "").strip()
+    if inline:
+        print("WARNING: [enrich].key stores an API key inside config.toml, "
+              "which IS committed. Remove it before pushing — the safe "
+              "places are the GEMINI_API_KEY env var or the gitignored "
+              ".env file ([enrich].key_file).", file=sys.stderr)
+        return inline
+    key_file = str(CFG["enrich"].get("key_file", "") or "").strip()
+    if key_file:
+        path = key_file if os.path.isabs(key_file) \
+            else os.path.join(_SCRIPT_DIR, key_file)
+        try:
+            with open(path, encoding="utf-8") as f:
+                lines = f.read().splitlines()
+        except OSError:
+            return ""
+        key = ""
+        bare = []  # .env layouts that just hold the key with no KEY= line
+        for ln in lines:
+            ln = ln.strip()
+            if not ln or ln.startswith("#"):
+                continue
+            if "=" in ln:
+                k, v = ln.split("=", 1)
+                if k.strip().upper() == "GEMINI_API_KEY":
+                    key = v.strip().strip('"').strip("'").strip()
+                    break
+            else:
+                bare.append(ln)
+        if not key and bare:
+            key = bare[0].strip().strip('"').strip("'")
+        if key:
+            if shutil.which("git"):
+                ignored = subprocess.run(
+                    ["git", "check-ignore", "-q", path], cwd=_SCRIPT_DIR,
+                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                ).returncode == 0
+                if not ignored:
+                    print(f"WARNING: [enrich].key_file {path} is NOT "
+                          "git-ignored — the key inside it would be "
+                          "committed. Move it into data/ etc.", file=sys.stderr)
+            return key
+    return ""
+
+
+ENRICH_API_KEY = _resolve_enrich_key()
 ENRICH_MODEL = str(CFG["enrich"].get("model", "gemini-2.5-flash-lite")).strip() \
     .replace("/", "")
 ENRICH_MAX_JOBS = int(CFG["enrich"].get("max_jobs", 60))

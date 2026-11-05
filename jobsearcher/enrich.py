@@ -30,7 +30,6 @@ imports an external package (requirements.txt: google-genai).
 """
 
 import json
-import os
 import sys
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
@@ -41,21 +40,22 @@ except ImportError:
     genai_sdk = None
     gtypes = None
 
-from .config import (ENRICH_CONCURRENCY, ENRICH_MAX_DESC_CHARS,
+from .config import (ENRICH_API_KEY, ENRICH_CONCURRENCY, ENRICH_MAX_DESC_CHARS,
                      ENRICH_MAX_JOBS, ENRICH_TIMEOUT, ENRICH_MODEL)
 
-_API_KEY = os.environ.get("GEMINI_API_KEY", "").strip()
-
-if genai_sdk is None and _API_KEY:
-    print("NOTE: GEMINI_API_KEY is set but google-genai is not installed — "
-          "run `pip install -r requirements.txt` to enable AI enrichment.",
+# Official SDK client; key from jobsearcher/config._resolve_enrich_key().
+_AVAILABLE_KEY = bool(ENRICH_API_KEY)
+if genai_sdk is None and _AVAILABLE_KEY:
+    print("NOTE: an API key resolved (env, [enrich].key, or "
+          "[enrich].key_file/.env) but google-genai is not installed — run "
+          "`pip install -r requirements.txt` to enable AI enrichment.",
           file=sys.stderr)
 
-AVAILABLE = bool(_API_KEY) and bool(ENRICH_MODEL) and genai_sdk is not None
+AVAILABLE = _AVAILABLE_KEY and bool(ENRICH_MODEL) and genai_sdk is not None
 _CLIENT = None
 if AVAILABLE:
     _CLIENT = genai_sdk.Client(
-        api_key=_API_KEY,
+        api_key=ENRICH_API_KEY,
         http_options=gtypes.HttpOptions(timeout=ENRICH_TIMEOUT * 1000))
 
 _BLANK = {"AI_YOE": "n/a", "AI_Remote": "", "AI_Salary": "",

@@ -28,7 +28,8 @@ concurrently, `page.py`/`web.py` serve the UI, `cli.py` holds CSV mode and
 
 ## Optional: AI insights (Gemini Flash-Lite)
 
-Export `GEMINI_API_KEY` and `pip install -r requirements.txt` (single
+Export `GEMINI_API_KEY` (or copy `.env.example` to `.env` and paste the
+key there) and `pip install -r requirements.txt` (single
 package: `google-genai`) to switch on JD enrichment for rows that pass the
 deterministic filters:
 
@@ -41,8 +42,8 @@ deterministic filters:
 - only rows new since the last scrape are annotated (the previous scrape's
   annotations carry forward), calls are capped per run (`[enrich].max_jobs`),
   and failures degrade to blank cells.
-- the key is read from the environment — never put it in `config.toml`;
-  that file is public.
+- the key is read from the environment or a gitignored `.env` file (see
+  `.env.example`) — never put it in `config.toml`; that file is public.
 
 Without a key or the package, everything runs exactly as before (the
 column shows `n/a`).
