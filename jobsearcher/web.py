@@ -26,17 +26,20 @@ def run_web():
             .replace("__HEADLINE__", html.escape(PROFILE_HEADLINE))
             .replace("__PROFILE_SUMMARY__", html.escape(PROFILE_SUMMARY)))
 
-    state = {"jobs": None, "ts": 0.0, "stamp": ""}
+    state = {"jobs": None, "ts": 0.0, "stamp": "", "running": False}
     state_lock = threading.Lock()
     worker_lock = threading.Lock()  # prevents overlapping scrapes
 
     def refresh():
         with worker_lock:
+            with state_lock:
+                state["running"] = True
             jobs = collect_jobs()
             with state_lock:
                 state["jobs"] = jobs
                 state["ts"] = time.time()
                 state["stamp"] = time.strftime("%H:%M", time.localtime())
+                state["running"] = False
 
     # Warm the cache at startup so button clicks are instant afterwards.
     first_scrape = threading.Thread(target=refresh, daemon=True)
@@ -53,19 +56,27 @@ def run_web():
         def do_GET(self):
             if self.path.startswith("/jobs"):
                 try:
-                    if state["jobs"] is None:
-                        first_scrape.join()  # very first click: wait for warm-up
-                    else:
-                        with state_lock:
-                            fresh = (time.time() - state["ts"]) < CACHE_TTL_SECONDS
-                        if not fresh:
-                            threading.Thread(target=refresh, daemon=True).start()
                     with state_lock:
-                        body = json.dumps({
-                            "jobs": state["jobs"] or [],
-                            "generated_at": state["stamp"],
-                            "cache_ttl_minutes": round(CACHE_TTL_SECONDS / 60),
-                        }).encode()
+                        jobs = state["jobs"]
+                        stamp = state["stamp"]
+                        running = state["running"]
+                        fresh = (jobs is not None
+                                 and (time.time() - state["ts"]) < CACHE_TTL_SECONDS)
+                    if jobs is None:
+                        first_scrape.join()  # very first click: wait for warm-up
+                        with state_lock:
+                            jobs, stamp, fresh, running = state["jobs"], state["stamp"], True, False
+                    elif not fresh and not running:
+                        # Stale cache: serve the old snapshot instantly and
+                        # re-scrape in the background; the UI polls until the
+                        # fresh run lands (frontend "refreshing" indicator).
+                        threading.Thread(target=refresh, daemon=True).start()
+                    body = json.dumps({
+                        "jobs": jobs or [],
+                        "generated_at": stamp,
+                        "cache_ttl_minutes": round(CACHE_TTL_SECONDS / 60),
+                        "refreshing": not fresh,
+                    }).encode()
                     self._send(200, "application/json; charset=utf-8", body)
                 except Exception as e:
                     self._send(500, "application/json", json.dumps({"error": str(e)}).encode())

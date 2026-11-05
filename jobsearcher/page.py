@@ -266,23 +266,53 @@ async function refresh() {
   btn.disabled = true;
   st.textContent = 'Loading cached results…';
   try {
-    const r = await fetch('/jobs');
+    const r = await fetch('/jobs', { cache: 'no-store' });
     const data = await r.json();
     JOBS = data.jobs || [];
-    const when = data.generated_at ? ` · scraped ${data.generated_at}` : '';
-    const companies = new Set(JOBS.map(j => j.Company)).size;
-    st.textContent = JOBS.length
-      ? `${JOBS.length} roles · ${companies} companies${when}`
-      : `No matching roles right now${when}`;
     buildAtsOptions();
     $('#card').classList.remove('hidden');
     $('#tracker').classList.remove('hidden');
     $('#statline').classList.remove('hidden');
     render(); renderTracker();
+    statusLine(data);
+    if (data.refreshing) schedulePoll(); else clearPoll();
   } catch (e) {
     st.textContent = 'Failed: ' + e;
   }
   btn.disabled = false;
+}
+
+function statusLine(data) {
+  const companies = new Set(JOBS.map(j => j.Company)).size;
+  const base = JOBS.length
+    ? `${JOBS.length} roles · ${companies} companies`
+    : 'No matching roles right now';
+  $('#status').textContent = data.generated_at
+    ? `${base} · scraped ${data.generated_at}` + (data.refreshing ? ' · refreshing in background…' : '')
+    : base;
+}
+
+// While the server re-scrapes in the background (cache TTL expired), poll
+// quietly every 2.5s; when the fresh run lands, swap it in automatically —
+// no second click needed.
+let pollTimer = null;
+function clearPoll() {
+  if (pollTimer) { clearTimeout(pollTimer); pollTimer = null; }
+}
+function schedulePoll() {
+  clearPoll();
+  pollTimer = setTimeout(async () => {
+    try {
+      const data = await (await fetch('/jobs', { cache: 'no-store' })).json();
+      if (data.refreshing) { schedulePoll(); return; }
+      JOBS = data.jobs || [];
+      buildAtsOptions();
+      render(); renderTracker();
+      statusLine(data);
+    } catch (e) {
+      schedulePoll();  // network hiccup — stay in polling until it lands
+    }
+  }, 2500);
 }
 
 function buildAtsOptions() {
