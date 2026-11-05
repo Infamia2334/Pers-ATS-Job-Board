@@ -206,6 +206,11 @@ timeout_seconds = 15
 # Web UI (python3 discover_jobs.py --web / ./start.sh).
 web_port = 8000            # env WEB_PORT overrides
 cache_ttl_seconds = 600    # stale scrape is refreshed silently in background
+# Web-mode cache persistence: the last completed scrape is written here so
+# restarting the server serves it instantly instead of re-scraping for a
+# minute. Relative to the repo root; folder is created on demand. Keep the
+# folder gitignored (it is regenerated data, config belongs in git).
+snapshot_path = "data/snapshot.json"
 # CSV mode output; "" = Live_Openings_Feed.csv next to the script.
 # env LIVE_FEED_PATH overrides either.
 live_feed_path = ""

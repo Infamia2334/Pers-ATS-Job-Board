@@ -149,7 +149,7 @@ WEB_PAGE = """<!doctype html>
       <button class="segbtn" data-view="off">✕ Not for me <b id="cntOff">0</b></button>
       <button class="segbtn" data-view="all">All <b id="cntAll">0</b></button>
     </div>
-    <button class="btn" id="go" onclick="refresh()">Refresh jobs</button>
+    <button class="btn" id="go" onclick="refresh(true)" title="Force a full re-scrape now (~1 min); results swap in automatically when done">Refresh jobs</button>
     <span id="status">Loading…</span>
   </div>
 
@@ -261,12 +261,16 @@ function toggleOff(url) {
   saveOff(); render(); renderTracker();
 }
 
-async function refresh() {
+async function refresh(force) {
   const btn = $('#go'), st = $('#status');
   btn.disabled = true;
   st.textContent = 'Loading cached results…';
   try {
-    const r = await fetch('/jobs', { cache: 'no-store' });
+    // Refresh button (force=true) = explicit demand: ?refresh=1 re-scrapes
+    // no matter how young the cache is. Page loads call refresh(false):
+    // cache-first, the server only kicks a background re-scrape once the
+    // config TTL expired — there is never a timer.
+    const r = await fetch(force ? '/jobs?refresh=1' : '/jobs', { cache: 'no-store' });
     const data = await r.json();
     JOBS = data.jobs || [];
     buildAtsOptions();
@@ -497,7 +501,7 @@ document.addEventListener('DOMContentLoaded', () => {
       $('#filter').value = ''; $('#filter').blur(); render();
     }
   });
-  refresh();
+  refresh(false);  // page load = cache-first; only the button forces a scrape
 });
 </script>
 </body>

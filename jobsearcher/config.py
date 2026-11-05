@@ -72,6 +72,7 @@ DEFAULTS = {
         "timeout_seconds": 15,
         "web_port": 8000,
         "cache_ttl_seconds": 600,
+        "snapshot_path": "data/snapshot.json",
         "live_feed_path": "",
         "preview_count": 20,
     },
@@ -153,6 +154,11 @@ MAX_WORKERS = int(_RUN.get("max_workers", 40))
 TIMEOUT = int(_RUN.get("timeout_seconds", 15))
 WEB_PORT = int(os.environ.get("WEB_PORT") or _RUN.get("web_port", 8000))
 CACHE_TTL_SECONDS = int(_RUN.get("cache_ttl_seconds", 600))
+# Web-mode cache snapshot, resolved relative to the repo root.
+SNAPSHOT_PATH = _RUN.get("snapshot_path") or ""
+SNAPSHOT_PATH = os.path.join(_SCRIPT_DIR, SNAPSHOT_PATH) \
+    if SNAPSHOT_PATH and not os.path.isabs(SNAPSHOT_PATH) \
+    else (SNAPSHOT_PATH or "")
 LIVE_FEED_PATH_CFG = str(_RUN.get("live_feed_path", "") or "")
 PREVIEW_COUNT = int(_RUN.get("preview_count", 20))
 
