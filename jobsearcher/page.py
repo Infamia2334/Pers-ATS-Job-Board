@@ -5,6 +5,17 @@ The __HEADLINE__ and __PROFILE_SUMMARY__ placeholders are replaced with
 localStorage under `appliedJobs` / `offRoleJobs` keyed by
 Direct_Apply_URL — keys unchanged from the old checkbox UI, so existing
 marks survive.
+
+Theming: ivory/sage/emerald/forest/gold estate palette; the toolbar
+◐/☾/☀ button cycles auto (follows the OS via prefers-color-scheme) >
+dark > light, persisted under localStorage themeMode; html.dark /
+html.light classes force a palette, the duplicated palette blocks must
+stay in sync (checked by looking at them together).
+
+Insights column: one AI pill per annotated row; clicking expands an
+insdetail panel with salary/YOE tags, stack and the full note. The
+column header sorts annotated-first; the toolbar has an AI-tag filter
+(#aif: annotated / remote-global / remote-region / salary).
 """
 
 WEB_PAGE = """<!doctype html>
@@ -15,28 +26,65 @@ WEB_PAGE = """<!doctype html>
 <meta name="color-scheme" content="light dark">
 <title>Live Openings Feed</title>
 <style>
+  /* Palette: Ivory #F2EBDD · Sage #78947F · Emerald #185844 ·
+     Forest #102F27 · Antique Gold #B08A4F (plus a muted wine for ✕ marks) */
   :root {
     color-scheme: light;
-    --bg: #f6f8fa; --fg: #0f172a; --fg-soft: #334155; --sm: #475569;
-    --muted: #64748b; --faint: #94a3b8;
-    --surface: #fff; --surface-2: #f8fafc; --soft: #f1f5f9;
-    --border: #e2e8f0; --border-soft: #eef2f7; --input-border: #cbd5e1;
-    --accent: #2563eb; --btn-bg: #2563eb; --btn-hover: #1d4ed8; --ring: rgba(37,99,235,.13);
-    --ok: #15803d; --ok-strong: #16a34a; --ok-soft: #f0fdf4; --ok-border: #86efac; --ok-deep: #047857;
-    --bad: #b91c1c; --bad-strong: #dc2626; --bad-soft: #fef2f2; --bad-border: #fecaca; --bad-tint: #fef6f6;
-    --row-hover: #f8faff; --toolbar-bg: rgba(246,248,250,.92);
-    --seg-on-bg: #0f172a; --seg-on-fg: #fff;
-    --ats-bg: #e0e7ff; --ats-fg: #4338ca;
-    --yoe-soft: #eef2ff; --yoe-border: #c7d2fe; --yoe-fg: #4338ca;
-    --mark-bg: #fef08a; --mark-fg: #0f172a;
+    --bg: #f2ebdd; --fg: #102f27; --fg-soft: #3c544a; --sm: #5a6f61;
+    --muted: #67796c; --faint: #8fa094;
+    --surface: #f8f3e7; --surface-2: #efe8d8; --soft: #e6dfcb;
+    --border: #d9d0bd; --border-soft: #e4dccb; --input-border: #c8bea5;
+    --accent: #185844; --btn-bg: #185844; --btn-hover: #124434; --btn-fg: #f2ebdd; --ring: rgba(24,88,68,.18);
+    --ok: #185844; --ok-strong: #1d6a4f; --ok-soft: #e3ecdf; --ok-border: #78947f; --ok-deep: #14523c;
+    --bad: #9c3f34; --bad-strong: #a34a3e; --bad-soft: #f1e2dc; --bad-border: #d3a79b; --bad-tint: #f2e3dd;
+    --row-hover: #f7f1e3; --toolbar-bg: rgba(242,235,221,.92);
+    --seg-on-bg: #102f27; --seg-on-fg: #f2ebdd;
+    --ats-bg: #185844; --ats-fg: #f2ebdd;
+    --yoe-soft: #f1e8cf; --yoe-border: #b08a4f; --yoe-fg: #7c5f1f;
+    --mark-bg: #f3dfae; --mark-fg: #102f27;
   }
   * { box-sizing: border-box; }
   body { margin: 0; font: 14px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
          background: var(--bg); color: var(--fg); }
   .wrap { max-width: 1240px; margin: 0 auto; padding: 20px 24px 64px; }
   header h1 { margin: 0; font-size: 20px; display: flex; align-items: center; gap: 10px; }
+  /* Dark theme = Forest base, Ivory text, Sage/gold accents. Active via the
+     toolbar toggle (html.dark) OR automatically when the OS is dark (the
+     prefers-color-scheme block at the end); html.light pins light even on a
+     dark OS. Toggle states: auto (default) > dark > light, remembered in
+     localStorage under themeMode. */
+  html.dark {
+    color-scheme: dark;
+    --bg: #102f27; --fg: #f2ebdd; --fg-soft: #cfd9cc; --sm: #a9b8ab;
+    --muted: #93a598; --faint: #6e8177;
+    --surface: #16362c; --surface-2: #1b4236; --soft: #1f4a3c;
+    --border: #2b5546; --border-soft: #23493c; --input-border: #3a6354;
+    --accent: #d3b273; --btn-bg: #d3b273; --btn-hover: #c2a262; --btn-fg: #102f27; --ring: rgba(211,178,115,.25);
+    --ok: #8fc79d; --ok-strong: #2e8b62; --ok-soft: #1c4034; --ok-border: #3e6b53; --ok-deep: #7fbf9a;
+    --bad: #d98a80; --bad-strong: #a34a3e; --bad-soft: #3a2523; --bad-border: #6e443f; --bad-tint: #33201e;
+    --row-hover: #16382d; --toolbar-bg: rgba(16,47,39,.9);
+    --seg-on-bg: #f2ebdd; --seg-on-fg: #102f27;
+    --ats-bg: #78947f; --ats-fg: #102f27;
+    --yoe-soft: #312c18; --yoe-border: #b08a4f; --yoe-fg: #d8b877;
+    --mark-bg: #d3b273; --mark-fg: #102f27;
+  }
+  html.light {
+    color-scheme: light;
+    --bg: #f2ebdd; --fg: #102f27; --fg-soft: #3c544a; --sm: #5a6f61;
+    --muted: #67796c; --faint: #8fa094;
+    --surface: #f8f3e7; --surface-2: #efe8d8; --soft: #e6dfcb;
+    --border: #d9d0bd; --border-soft: #e4dccb; --input-border: #c8bea5;
+    --accent: #185844; --btn-bg: #185844; --btn-hover: #124434; --btn-fg: #f2ebdd; --ring: rgba(24,88,68,.18);
+    --ok: #185844; --ok-strong: #1d6a4f; --ok-soft: #e3ecdf; --ok-border: #78947f; --ok-deep: #14523c;
+    --bad: #9c3f34; --bad-strong: #a34a3e; --bad-soft: #f1e2dc; --bad-border: #d3a79b; --bad-tint: #f2e3dd;
+    --row-hover: #f7f1e3; --toolbar-bg: rgba(242,235,221,.92);
+    --seg-on-bg: #102f27; --seg-on-fg: #f2ebdd;
+    --ats-bg: #185844; --ats-fg: #f2ebdd;
+    --yoe-soft: #f1e8cf; --yoe-border: #b08a4f; --yoe-fg: #7c5f1f;
+    --mark-bg: #f3dfae; --mark-fg: #102f27;
+  }
   .logo { width: 30px; height: 30px; border-radius: 8px; flex: none;
-          background: linear-gradient(135deg, #2563eb, #7c3aed); color: #fff;
+          background: linear-gradient(135deg, #185844, #b08a4f); color: #f2ebdd;
           display: inline-flex; align-items: center; justify-content: center; font-size: 15px; }
   .sub { color: var(--muted); margin-top: 2px; font-size: 13px; }
   .toolbar { position: sticky; top: 0; z-index: 10; display: flex; gap: 10px; align-items: center;
@@ -62,10 +110,14 @@ WEB_PAGE = """<!doctype html>
   .segbtn:hover { background: var(--soft); }
   .segbtn.on { background: var(--seg-on-bg); color: var(--seg-on-fg); }
   .segbtn b { font-weight: 600; }
-  .btn { padding: 8px 14px; border: 0; border-radius: 8px; background: var(--btn-bg); color: #fff;
+  .btn { padding: 8px 14px; border: 0; border-radius: 8px; background: var(--btn-bg); color: var(--btn-fg);
          font-size: 13px; font-weight: 500; cursor: pointer; }
   .btn:hover { background: var(--btn-hover); }
   .btn:disabled { opacity: .55; cursor: wait; }
+  .tbtn { padding: 0; width: 34px; height: 34px; flex: none; border: 1px solid var(--input-border);
+          border-radius: 8px; background: var(--surface); color: var(--muted); font-size: 15px;
+          cursor: pointer; line-height: 1; }
+  .tbtn:hover { background: var(--soft); color: var(--fg); }
   .statline { display: flex; gap: 8px; flex-wrap: wrap; margin: 12px 0 6px; align-items: center; }
   .chip { border: 1px solid var(--border); border-radius: 999px; padding: 4px 12px; background: var(--surface);
           font-size: 12.5px; color: var(--sm); }
@@ -138,44 +190,55 @@ WEB_PAGE = """<!doctype html>
   .yoe .known { background: var(--yoe-soft); color: var(--yoe-fg); border-radius: 6px; padding: 1px 8px;
                 font-size: 12px; font-weight: 600; }
   .yoe .na { color: var(--faint); font-size: 12px; }
-  /* AI Insights column: stacked badges, optional feature (all n/a without a key) */
+  /* AI Insights: one quiet pill per row (colored by remote match); click
+     expands the full annotation — salary/YOE tags, stack, whole note. */
   .ins { max-width: 300px; font-size: 11.5px; color: var(--sm); }
-  .ins .tag { display: inline-block; border: 1px solid var(--border); border-radius: 999px;
-              padding: 1px 8px; margin: 1px 2px 1px 0; background: var(--surface); font-size: 11px;
-              color: var(--sm); white-space: nowrap; }
-  .ins .tag.rem-g { border-color: var(--ok-border); background: var(--ok-soft); color: var(--ok); }
-  .ins .tag.rem-r { border-color: var(--bad-border); background: var(--bad-soft); color: var(--bad); }
-  .ins .tag.yoe { border-color: var(--yoe-border); background: var(--yoe-soft); color: var(--yoe-fg); }
-  .ins .stk { margin-top: 2px; font-size: 11px; color: var(--fg); font-weight: 500; }
-  .ins .note { color: var(--muted); font-size: 11px; }
-  .ins { display: table-cell; }
-  .ins .wrap { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
-               overflow: hidden; line-height: 1.35; }
+  .aipill { display: inline-flex; align-items: center; gap: 4px; border: 1px solid var(--ok-border);
+            border-radius: 999px; padding: 2px 9px; background: var(--ok-soft); color: var(--ok);
+            font-size: 11px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+  .aipill.rem-r { border-color: var(--bad-border); background: var(--bad-soft); color: var(--bad); }
+  .aipill .c { font-weight: 400; opacity: .8; }
+  .insdetail { margin-top: 5px; padding: 7px 9px; border: 1px solid var(--border);
+               border-radius: 8px; background: var(--surface-2); font-size: 11px;
+               color: var(--sm); line-height: 1.5; }
+  .insdetail .tag { display: inline-block; border: 1px solid var(--border); border-radius: 999px;
+                    padding: 1px 8px; margin: 1px 3px 1px 0; background: var(--surface); font-size: 10.5px;
+                    color: var(--fg-soft); white-space: nowrap; }
+  .insdetail .tag.yoe { border-color: var(--yoe-border); background: var(--yoe-soft); color: var(--yoe-fg); }
+  .insdetail .stk { margin: 4px 0 0; font-size: 10.5px; color: var(--fg); font-weight: 600; }
+  .insdetail .note { margin: 3px 0 0; color: var(--sm); }
   .ins .na { color: var(--faint); font-size: 12px; }
   mark { background: var(--mark-bg); color: var(--mark-fg); border-radius: 2px; padding: 0 1px; }
   #empty { display: none; text-align: center; color: var(--faint); padding: 34px 10px; font-size: 13.5px; }
   .hidden { display: none !important; }
   @media (max-width: 640px) { .wrap { padding: 14px 12px 48px; } #status { width: 100%; margin: 6px 0 0; } }
-  /* Dark mode follows the OS appearance (System Settings → Appearance) —
-     no toggle; the page switches automatically and live when macOS flips. */
+  /* Auto.Dark: follows the OS appearance (System Settings → Appearance);
+     html.dark above forces it via the toggle, html.light pins light. */
   @media (prefers-color-scheme: dark) {
     :root {
       color-scheme: dark;
-      --bg: #0b1220; --fg: #e2e8f0; --fg-soft: #c6d2e2; --sm: #9db0c7;
-      --muted: #94a3b8; --faint: #64748b;
-      --surface: #131c2e; --surface-2: #16223a; --soft: #1b2a42;
-      --border: #26344e; --border-soft: #1e2a41; --input-border: #33435f;
-      --accent: #60a5fa; --btn-bg: #2563eb; --btn-hover: #1d4ed8; --ring: rgba(96,165,250,.22);
-      --ok: #4ade80; --ok-strong: #16a34a; --ok-soft: #10281c; --ok-border: #2f6b3f; --ok-deep: #34d399;
-      --bad: #f87171; --bad-strong: #dc2626; --bad-soft: #291316; --bad-border: #6f2a2a; --bad-tint: #251215;
-      --row-hover: #121e36; --toolbar-bg: rgba(11,18,32,.9);
-      --seg-on-bg: #e2e8f0; --seg-on-fg: #0b1220;
-      --ats-bg: #312e81; --ats-fg: #c7d2fe;
-      --yoe-soft: #1e1b4b; --yoe-border: #4338ca; --yoe-fg: #a5b4fc;
-      --mark-bg: #fde047; --mark-fg: #1c1917;
+      --bg: #102f27; --fg: #f2ebdd; --fg-soft: #cfd9cc; --sm: #a9b8ab;
+      --muted: #93a598; --faint: #6e8177;
+      --surface: #16362c; --surface-2: #1b4236; --soft: #1f4a3c;
+      --border: #2b5546; --border-soft: #23493c; --input-border: #3a6354;
+      --accent: #d3b273; --btn-bg: #d3b273; --btn-hover: #c2a262; --btn-fg: #102f27; --ring: rgba(211,178,115,.25);
+      --ok: #8fc79d; --ok-strong: #2e8b62; --ok-soft: #1c4034; --ok-border: #3e6b53; --ok-deep: #7fbf9a;
+      --bad: #d98a80; --bad-strong: #a34a3e; --bad-soft: #3a2523; --bad-border: #6e443f; --bad-tint: #33201e;
+      --row-hover: #16382d; --toolbar-bg: rgba(16,47,39,.9);
+      --seg-on-bg: #f2ebdd; --seg-on-fg: #102f27;
+      --ats-bg: #78947f; --ats-fg: #102f27;
+      --yoe-soft: #312c18; --yoe-border: #b08a4f; --yoe-fg: #d8b877;
+      --mark-bg: #d3b273; --mark-fg: #102f27;
     }
   }
 </style>
+<script>
+  // Apply the remembered theme before first paint (no flash). 'auto' (the
+  // default) sets no class: the OS color-scheme media query decides.
+  try { var _m = localStorage.getItem('themeMode');
+        if (_m === 'dark') document.documentElement.className = 'dark';
+        else if (_m === 'light') document.documentElement.className = 'light'; } catch (e) {}
+</script>
 </head>
 <body>
 <div class="wrap">
@@ -192,6 +255,13 @@ WEB_PAGE = """<!doctype html>
       <button class="clear" id="clearq" title="Clear search">✕</button>
     </div>
     <select id="ats" onchange="render()"><option value="all">All sources</option></select>
+    <select id="aif" onchange="render()" title="Filter by AI annotation">
+      <option value="all">Insights: all</option>
+      <option value="has">AI annotated only</option>
+      <option value="remote-global">AI: remote-global</option>
+      <option value="remote-region">AI: remote-region</option>
+      <option value="salary">AI: salary listed</option>
+    </select>
     <div class="seg" id="viewSeg" role="group" aria-label="Category view">
       <button class="segbtn" data-view="active">Active <b id="cntAct">0</b></button>
       <button class="segbtn" data-view="applied">✓ Applied <b id="cntApp">0</b></button>
@@ -199,6 +269,7 @@ WEB_PAGE = """<!doctype html>
       <button class="segbtn" data-view="all">All <b id="cntAll">0</b></button>
     </div>
     <button class="btn" id="go" onclick="refresh(true)" title="Force a full re-scrape now (~1 min); results swap in automatically when done">Refresh jobs</button>
+    <button class="tbtn" id="modeBtn" onclick="cycleTheme()" title="Theme"></button>
     <span id="status">Loading…</span>
   </div>
 
@@ -240,7 +311,7 @@ WEB_PAGE = """<!doctype html>
           <th onclick="sortBy('Title')">Title</th>
           <th onclick="sortBy('Location')">Location</th>
           <th onclick="sortBy('YOE')">Max YOE</th>
-          <th class="nosort" title="Optional AI annotation (Gemini Flash-Lite): kept only when GEMINI_API_KEY is set; advisory only — filters stay deterministic">Insights</th>
+          <th onclick="sortBy('AIInsights')" title="AI annotation (Gemini Flash-Lite); click to sort — annotated roles first. Click a row's pill for the full note">Insights</th>
           <th onclick="sortBy('ATS')">Source</th>
           <th class="nosort">Apply</th>
         </tr>
@@ -272,6 +343,28 @@ let renderTimer = null;
 let VIEW = 'active';
 try { const saved = localStorage.getItem('jobsView');
       if (['active', 'applied', 'off', 'all'].includes(saved)) VIEW = saved; } catch (e) {}
+
+// Theme toggle: 'auto' (default, follows the OS appearance), 'dark', 'light' —
+// cycled with the toolbar button, remembered under themeMode. The CSS maps
+// html.dark / html.light to forced palettes and the prefers-color-scheme
+// block handles auto.
+let THEME = 'auto';
+try { const t = localStorage.getItem('themeMode');
+      if (t === 'dark' || t === 'light') THEME = t; } catch (e) {}
+function applyTheme() {
+  document.documentElement.classList.toggle('dark', THEME === 'dark');
+  document.documentElement.classList.toggle('light', THEME === 'light');
+  const b = $('#modeBtn');
+  if (b) {
+    b.textContent = THEME === 'dark' ? '☾' : (THEME === 'light' ? '☀' : '◐');
+    b.title = 'Theme: ' + (THEME === 'auto' ? 'system default' : THEME) + ' — click to switch';
+  }
+  try { localStorage.setItem('themeMode', THEME); } catch (e) {}
+}
+function cycleTheme() {
+  THEME = THEME === 'auto' ? 'dark' : (THEME === 'dark' ? 'light' : 'auto');
+  applyTheme();
+}
 
 function setView(v) {
   VIEW = v;
@@ -377,11 +470,20 @@ function buildAtsOptions() {
   if (sources.includes(prev)) sel.value = prev;
 }
 
+function hasInsights(j) {
+  return !!((j.AI_Remote && j.AI_Remote !== 'n/a') || j.AI_Salary
+    || (j.AI_YOE && j.AI_YOE !== 'n/a') || j.AI_Stack || j.AI_Note);
+}
+
 function cmp(a, b) {
   if (SORT === 'YOE') {
     const x = parseInt(a.Max_Stated_YOE, 10), y = parseInt(b.Max_Stated_YOE, 10);
     const nx = isNaN(x) ? 999 : x, ny = isNaN(y) ? 999 : y;   // n/a sorts last
     return nx - ny;
+  }
+  if (SORT === 'AIInsights') {
+    // Annotated roles first ascending; the ↓ arrow flips it.
+    return (hasInsights(b) ? 1 : 0) - (hasInsights(a) ? 1 : 0);
   }
   return String(a[SORT] ?? '').localeCompare(String(b[SORT] ?? ''), undefined,
     { sensitivity: 'base', numeric: true });
@@ -391,6 +493,7 @@ function render() {
   const q = $('#filter').value.trim().toLowerCase();
   $('#searchbox').classList.toggle('hasq', !!q);
   const ats = $('#ats').value;
+  const aif = $('#aif').value;
   const tbody = $('#rows');
   tbody.innerHTML = '';
   const idx = [...JOBS.keys()];
@@ -406,6 +509,11 @@ function render() {
       if (!hay.includes(q)) continue;
     }
     if (ats !== 'all' && j.ATS !== ats) continue;
+    if (aif !== 'all') {
+      if (aif === 'has') { if (!hasInsights(j)) continue; }
+      else if (aif === 'salary') { if (!j.AI_Salary) continue; }
+      else if (j.AI_Remote !== aif) continue;   // remote-global / remote-region
+    }
     // Category views: 'active' hides everything already marked, which is
     // the default dashboard behaviour.
     const isA = !!applied[url], isO = !isA && !!offrole[url];
@@ -434,9 +542,13 @@ function rowEl(j, url, q) {
   const salTag = j.AI_Salary ? `<span class="tag">${esc(j.AI_Salary)}</span>` : '';
   const yoeTag = j.AI_YOE && j.AI_YOE !== 'n/a' ? `<span class="tag yoe">${esc(j.AI_YOE)}</span>` : '';
   const stkLine = j.AI_Stack ? `<div class="stk">${esc(j.AI_Stack)}</div>` : '';
-  const noteLine = j.AI_Note
-    ? `<div class="note wrap" title="${esc(j.AI_Note)}">${esc(j.AI_Note)}</div>` : '';
-  const hasIns = remTag || salTag || yoeTag || stkLine || noteLine;
+  const noteLine = j.AI_Note ? `<div class="note">${esc(j.AI_Note)}</div>` : '';
+  const annotated = hasInsights(j);
+  // Collapsed cell = one pill; the detail panel holds everything else. If
+  // the model annotated ONLY the remote field, repeat it in the detail so
+  // expanding isn't empty.
+  let detail = salTag + yoeTag + stkLine + noteLine;
+  if (!detail) detail = remTag;
   tr.innerHTML =
     `<td class="act">` +
     `<button type="button" class="pill ok${isA ? ' on' : ''}" title="${isA ? 'Unmark as applied' : 'Mark as applied'}" aria-label="${isA ? 'Unmark as applied' : 'Mark as applied'}">✓</button>` +
@@ -448,12 +560,25 @@ function rowEl(j, url, q) {
     `<td>${hl(j.Title, q)}</td>` +
     `<td>${hl(j.Location, q)}</td>` +
     `<td class="yoe">${y === 'n/a' ? '<span class="na">n/a</span>' : `<span class="known">${esc(y)} yr</span>`}</td>` +
-    `<td class="ins">${hasIns ? remTag + salTag + yoeTag + stkLine + noteLine : '<span class="na">n/a</span>'}</td>` +
+    `<td class="ins">` +
+    (annotated
+      ? `<button type="button" class="aipill${remCls}" title="Show/hide the full AI annotation">` +
+        `✦ ${gc ? esc(gc) : 'AI'} <span class="c">▾</span></button>` +
+        `<div class="insdetail hidden">${detail}</div>`
+      : '<span class="na">n/a</span>') +
+    `</td>` +
     `<td>${esc(j.ATS)}</td>` +
     `<td class="act"><a class="go" href="${esc(url)}" target="_blank" rel="noopener">Apply ↗</a></td>`;
   const [pA, pO] = tr.querySelectorAll('.pill');
   pA.onclick = () => toggleApply(url);
   pO.onclick = () => toggleOff(url);
+  const pill = tr.querySelector('.aipill');
+  if (pill) pill.onclick = () => {
+    const d = tr.querySelector('.insdetail');
+    const opening = d.classList.contains('hidden');
+    d.classList.toggle('hidden');
+    pill.querySelector('.c').textContent = opening ? '▴' : '▾';
+  };
   return tr;
 }
 
@@ -547,6 +672,7 @@ document.addEventListener('DOMContentLoaded', () => {
   document.querySelectorAll('#viewSeg .segbtn').forEach(b =>
     b.addEventListener('click', () => setView(b.dataset.view)));
   setView(VIEW);
+  applyTheme();
 
   $('#filter').addEventListener('input', () => {
     // Debounce: a keystroke on a 300-row table rerenders everything, so
