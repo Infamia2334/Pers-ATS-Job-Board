@@ -26,9 +26,16 @@ from .config import (CFG, RESUME_PDF, ROLE_REGEX, EXCLUDE_ROLE_REGEX,
                      stated_max_years, description_text)
 
 
-def _row(ats: str, company: str, title: str, loc: str, stated_yoe, url: str) -> dict:
-    """Normalized row shape shared by every source."""
-    return {
+def _row(ats: str, company: str, title: str, loc: str, stated_yoe, url: str,
+         desc: str = "") -> dict:
+    """Normalized row shape shared by every source.
+
+    `desc` is internal plumbing for the optional AI annotation layer
+    (engine passes it to enrich, then strips the key before any row
+    escapes into the CSV/snapshot). An empty/absent desc — YC and
+    LinkedIn guest cards — simply leaves the key off the row.
+    """
+    row = {
         "ATS": ats,
         "Company": company,
         "Title": title,
@@ -37,6 +44,9 @@ def _row(ats: str, company: str, title: str, loc: str, stated_yoe, url: str) -> 
         "Recommended_PDF": RESUME_PDF,
         "Direct_Apply_URL": url,
     }
+    if desc:
+        row["_desc"] = desc
+    return row
 
 
 def check_ashby(slug: str):
@@ -57,7 +67,7 @@ def check_ashby(slug: str):
                 continue
             url = j.get("jobUrl") or f"https://jobs.ashbyhq.com/{slug}/{j.get('id')}"
             results.append(_row("Ashby", slug.title(), title, loc_str, stated_yoe,
-                                url.rstrip("/") + "/application"))
+                                url.rstrip("/") + "/application", desc))
     except Exception:
         pass
     return results
@@ -79,7 +89,8 @@ def check_greenhouse(slug: str):
             if not yoe_ok(desc):
                 continue
             url = j.get("absolute_url", "")
-            results.append(_row("Greenhouse", slug.title(), title, loc, stated_yoe, url))
+            results.append(_row("Greenhouse", slug.title(), title, loc, stated_yoe, url,
+                                desc))
     except Exception:
         pass
     return results
@@ -107,7 +118,8 @@ def check_lever(slug: str):
             if not yoe_ok(desc):
                 continue
             url = j.get("applyUrl") or j.get("hostedUrl", "")
-            results.append(_row("Lever", slug.title(), title, loc_str, stated_yoe, url))
+            results.append(_row("Lever", slug.title(), title, loc_str, stated_yoe, url,
+                                desc))
     except Exception:
         pass
     return results
@@ -238,7 +250,8 @@ def check_hn_whoishiring():
             continue
         results.append(_row("HN", company[:60] or "HN poster", title[:150],
                             lm.group(0), stated_yoe,
-                            first_link or f"https://news.ycombinator.com/item?id={c.get('objectID')}"))
+                            first_link or f"https://news.ycombinator.com/item?id={c.get('objectID')}",
+                            text))
     return results
 
 
@@ -270,7 +283,7 @@ def check_remoteok():
             continue
         results.append(_row("RemoteOK", (j.get("company") or "RemoteOK company")[:60],
                             title[:150], loc, stated_yoe,
-                            j.get("apply_url") or j.get("url", "")))
+                            j.get("apply_url") or j.get("url", ""), desc))
     return results
 
 
@@ -299,7 +312,7 @@ def check_weworkremotely(feed: str):
         if not yoe_ok(desc):
             continue
         results.append(_row("WWR", re.split(r":\s*", title)[0][:60], title[:150],
-                            loc, stated_yoe, link))
+                            loc, stated_yoe, link, desc))
     return results
 
 
@@ -380,5 +393,5 @@ def check_zohorecruit(site_cfg: dict):
         if not yoe_ok(desc):
             continue
         results.append(_row("Zoho", company, title[:150], loc or "Remote (Global)",
-                            stated_yoe, j.get("$url", "")))
+                            stated_yoe, j.get("$url", ""), desc))
     return results

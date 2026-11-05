@@ -122,6 +122,20 @@ WEB_PAGE = """<!doctype html>
   .yoe .known { background: #ecfdf5; color: #047857; border-radius: 6px; padding: 1px 8px;
                 font-size: 12px; font-weight: 600; }
   .yoe .na { color: #94a3b8; font-size: 12px; }
+  /* AI Insights column: stacked badges, optional feature (all n/a without a key) */
+  .ins { max-width: 300px; font-size: 11.5px; color: #475569; }
+  .ins .tag { display: inline-block; border: 1px solid #e2e8f0; border-radius: 999px;
+              padding: 1px 8px; margin: 1px 2px 1px 0; background: #fff; font-size: 11px;
+              color: #475569; white-space: nowrap; }
+  .ins .tag.rem-g { border-color: #bbf7d0; background: #f0fdf4; color: #15803d; }
+  .ins .tag.rem-r { border-color: #fecaca; background: #fef2f2; color: #b91c1c; }
+  .ins .tag.yoe { border-color: #c7d2fe; background: #eef2ff; color: #4338ca; }
+  .ins .stk { margin-top: 2px; font-size: 11px; color: #0f172a; font-weight: 500; }
+  .ins .note { color: #64748b; font-size: 11px; }
+  .ins { display: table-cell; }
+  .ins .wrap { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+               overflow: hidden; line-height: 1.35; }
+  .ins .na { color: #94a3b8; font-size: 12px; }
   mark { background: #fef08a; border-radius: 2px; padding: 0 1px; }
   #empty { display: none; text-align: center; color: #94a3b8; padding: 34px 10px; font-size: 13.5px; }
   .hidden { display: none !important; }
@@ -191,6 +205,7 @@ WEB_PAGE = """<!doctype html>
           <th onclick="sortBy('Title')">Title</th>
           <th onclick="sortBy('Location')">Location</th>
           <th onclick="sortBy('YOE')">Max YOE</th>
+          <th class="nosort" title="Optional AI annotation (Gemini Flash-Lite): kept only when GEMINI_API_KEY is set; advisory only — filters stay deterministic">Insights</th>
           <th onclick="sortBy('ATS')">Source</th>
           <th class="nosort">Apply</th>
         </tr>
@@ -350,7 +365,9 @@ function render() {
   for (const i of idx) {
     const j = JOBS[i], url = keyOf(j);
     if (q) {
-      const hay = (j.Company + ' ' + j.Title + ' ' + j.Location + ' ' + j.ATS).toLowerCase();
+      const hay = (j.Company + ' ' + j.Title + ' ' + j.Location + ' ' + j.ATS + ' '
+        + (j.AI_Stack || '') + ' ' + (j.AI_Salary || '') + ' ' + (j.AI_Remote || '')
+        + ' ' + (j.AI_Note || '')).toLowerCase();
       if (!hay.includes(q)) continue;
     }
     if (ats !== 'all' && j.ATS !== ats) continue;
@@ -376,6 +393,15 @@ function rowEl(j, url, q) {
   if (isA) tr.className = 'status-applied';
   else if (isO) tr.className = 'status-hidden';
   const y = String(j.Max_Stated_YOE);
+  const gc = String(j.AI_Remote || '');
+  const remCls = gc === 'remote-global' ? ' rem-g' : (gc === 'remote-region' ? ' rem-r' : '');
+  const remTag = gc ? `<span class="tag${remCls}">${esc(gc)}</span>` : '';
+  const salTag = j.AI_Salary ? `<span class="tag">${esc(j.AI_Salary)}</span>` : '';
+  const yoeTag = j.AI_YOE && j.AI_YOE !== 'n/a' ? `<span class="tag yoe">${esc(j.AI_YOE)}</span>` : '';
+  const stkLine = j.AI_Stack ? `<div class="stk">${esc(j.AI_Stack)}</div>` : '';
+  const noteLine = j.AI_Note
+    ? `<div class="note wrap" title="${esc(j.AI_Note)}">${esc(j.AI_Note)}</div>` : '';
+  const hasIns = remTag || salTag || yoeTag || stkLine || noteLine;
   tr.innerHTML =
     `<td class="act">` +
     `<button type="button" class="pill ok${isA ? ' on' : ''}" title="${isA ? 'Unmark as applied' : 'Mark as applied'}" aria-label="${isA ? 'Unmark as applied' : 'Mark as applied'}">✓</button>` +
@@ -387,6 +413,7 @@ function rowEl(j, url, q) {
     `<td>${hl(j.Title, q)}</td>` +
     `<td>${hl(j.Location, q)}</td>` +
     `<td class="yoe">${y === 'n/a' ? '<span class="na">n/a</span>' : `<span class="known">${esc(y)} yr</span>`}</td>` +
+    `<td class="ins">${hasIns ? remTag + salTag + yoeTag + stkLine + noteLine : '<span class="na">n/a</span>'}</td>` +
     `<td>${esc(j.ATS)}</td>` +
     `<td class="act"><a class="go" href="${esc(url)}" target="_blank" rel="noopener">Apply ↗</a></td>`;
   const [pA, pO] = tr.querySelectorAll('.pill');

@@ -4,6 +4,7 @@ import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from .config import CFG, DEDUP, MAX_WORKERS, company_allowed, tier_of
+from . import enrich
 from .sources import (check_ashby, check_greenhouse, check_lever,
                       check_ycombinator, check_hn_whoishiring, check_remoteok,
                       check_weworkremotely, check_linkedin, check_zohorecruit,
@@ -41,8 +42,15 @@ def dedup_rows(rows: list) -> tuple:
     return kept, len(rows) - len(kept)
 
 
-def collect_jobs():
-    """Fetch every enabled source and return the matching rows, tier-sorted."""
+def collect_jobs(prev_jobs: list | None = None):
+    """Fetch every enabled source and return the matching rows, tier-sorted.
+
+    `prev_jobs` (web mode: the last snapshot) seeds the AI enrichment
+    layer: rows whose apply URL already appeared there adopt their old
+    AI_* annotation instead of costing a second model call. Only survivor
+    rows are annotated, and the internal `_desc` key is stripped before
+    anything is returned — it must never reach the CSV or the snapshot.
+    """
     ats_boards = CFG["boards"]
     all_jobs = []
     tasks = []
@@ -74,4 +82,14 @@ def collect_jobs():
         all_jobs, _ = dedup_rows(all_jobs)
 
     all_jobs.sort(key=lambda j: (j["Tier"], j["Company"], j["Title"]))
+
+    prev_by_url = {}
+    if prev_jobs:
+        prev_by_url = {(r.get("Direct_Apply_URL") or "").strip().rstrip("/"): r
+                       for r in prev_jobs
+                       if (r.get("Direct_Apply_URL") or "").strip()}
+    enrich.enrich_jobs(all_jobs, prev_by_url)
+
+    for row in all_jobs:
+        row.pop("_desc", None)
     return all_jobs

@@ -216,3 +216,21 @@ snapshot_path = "data/snapshot.json"
 live_feed_path = ""
 # How many rows the CSV-mode console preview prints (one per company).
 preview_count = 20
+
+# -----------------------------------------------------------------------------
+# Optional AI enrichment — Gemini Flash-Lite annotates surviving job rows:
+# stated YOE + stance, remote policy, stated salary, tech stack, one-line
+# fit note. Advisory ONLY: annotations never decide what's in or out, the
+# deterministic filters above do. OFF unless GEMINI_API_KEY is exported in
+# your shell and google-genai is pip-installed (see requirements.txt).
+# NEVER put the API key in this file — config.toml ships to the public repo.
+# Only rows new since the last scrape are annotated (the snapshot carries
+# old annotations forward), max_jobs caps calls per run, and API failures
+# degrade silently to blank columns.
+# -----------------------------------------------------------------------------
+[enrich]
+model = "gemini-2.5-flash-lite"
+max_jobs = 60              # annotation cap per scrape (quota safety)
+concurrency = 5            # small pool so a flood of new jobs doesn't 429
+timeout_seconds = 25
+max_desc_chars = 6000      # description text handed to the model

@@ -76,6 +76,13 @@ DEFAULTS = {
         "live_feed_path": "",
         "preview_count": 20,
     },
+    "enrich": {
+        "model": "gemini-2.5-flash-lite",
+        "max_jobs": 60,
+        "concurrency": 5,
+        "timeout_seconds": 25,
+        "max_desc_chars": 6000,
+    },
 }
 
 
@@ -161,6 +168,16 @@ SNAPSHOT_PATH = os.path.join(_SCRIPT_DIR, SNAPSHOT_PATH) \
     else (SNAPSHOT_PATH or "")
 LIVE_FEED_PATH_CFG = str(_RUN.get("live_feed_path", "") or "")
 PREVIEW_COUNT = int(_RUN.get("preview_count", 20))
+
+# -- enrich (optional Gemini Flash-Lite JD annotation) -------------------
+# OFF unless GEMINI_API_KEY is in the environment — the key is never read
+# from config.toml, which ships to the public repo.
+ENRICH_MODEL = str(CFG["enrich"].get("model", "gemini-2.5-flash-lite")).strip() \
+    .replace("/", "")
+ENRICH_MAX_JOBS = int(CFG["enrich"].get("max_jobs", 60))
+ENRICH_CONCURRENCY = int(CFG["enrich"].get("concurrency", 5))
+ENRICH_TIMEOUT = int(CFG["enrich"].get("timeout_seconds", 25))
+ENRICH_MAX_DESC_CHARS = int(CFG["enrich"].get("max_desc_chars", 6000))
 
 
 def stated_max_years(text: str):

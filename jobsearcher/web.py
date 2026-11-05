@@ -67,7 +67,8 @@ def run_web():
         with worker_lock:
             with state_lock:
                 state["running"] = True
-            jobs = collect_jobs()
+                prev = state["jobs"]
+            jobs = collect_jobs(prev_jobs=prev)
             with state_lock:
                 state["jobs"] = jobs
                 state["ts"] = time.time()

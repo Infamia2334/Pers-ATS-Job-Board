@@ -16,6 +16,7 @@ from .sources import _zoho_site_entries
 from .engine import collect_jobs
 
 CSV_FIELDNAMES = ["ATS", "Company", "Title", "Location", "Max_Stated_YOE",
+                  "AI_YOE", "AI_Remote", "AI_Salary", "AI_Stack", "AI_Note",
                   "Recommended_PDF", "Direct_Apply_URL"]
 
 

@@ -1,0 +1,3 @@
+# The scraping core is stdlib-only; this single package backs the
+# optional AI enrichment layer ([enrich] / GEMINI_API_KEY).
+google-genai>=2.0
