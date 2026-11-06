@@ -16,9 +16,37 @@ import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from .config import (CACHE_TTL_SECONDS, CONFIG_PATH, PROFILE_HEADLINE,
-                     PROFILE_SUMMARY, SNAPSHOT_PATH, WEB_PORT)
+                     PROFILE_SUMMARY, SNAPSHOT_PATH, WEB_PORT, _SCRIPT_DIR)
 from .engine import collect_jobs
 from .page import WEB_PAGE
+
+TRACKER_PATH = os.path.join(os.path.dirname(SNAPSHOT_PATH) if SNAPSHOT_PATH else os.path.join(_SCRIPT_DIR, "data"), "tracker.json")
+_tracker_lock = threading.Lock()
+
+
+def _load_tracker() -> dict:
+    try:
+        with open(TRACKER_PATH, encoding="utf-8") as f:
+            data = json.load(f)
+        if isinstance(data, dict):
+            return {
+                "applied": data.get("applied") if isinstance(data.get("applied"), dict) else {},
+                "offrole": data.get("offrole") if isinstance(data.get("offrole"), dict) else {},
+            }
+    except Exception:
+        pass
+    return {"applied": {}, "offrole": {}}
+
+
+def _save_tracker(applied: dict, offrole: dict):
+    try:
+        os.makedirs(os.path.dirname(TRACKER_PATH) or ".", exist_ok=True)
+        tmp = TRACKER_PATH + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump({"applied": applied, "offrole": offrole}, f, indent=2)
+        os.replace(tmp, TRACKER_PATH)
+    except OSError as e:
+        print(f"tracker write failed ({e})", flush=True)
 
 
 def _save_snapshot(jobs: list, ts: float, stamp: str):
@@ -140,8 +168,28 @@ def run_web():
                     self._send(200, "application/json; charset=utf-8", body)
                 except Exception as e:
                     self._send(500, "application/json", json.dumps({"error": str(e)}).encode())
+            elif self.path.startswith("/tracker"):
+                with _tracker_lock:
+                    body = json.dumps(_load_tracker()).encode()
+                self._send(200, "application/json; charset=utf-8", body)
             elif self.path.startswith("/"):
                 self._send(200, "text/html; charset=utf-8", page.encode())
+            else:
+                self._send(404, "text/plain", b"not found")
+
+        def do_POST(self):
+            if self.path.startswith("/tracker"):
+                try:
+                    length = int(self.headers.get("Content-Length") or 0)
+                    raw = self.rfile.read(length) if length > 0 else b"{}"
+                    payload = json.loads(raw.decode("utf-8"))
+                    with _tracker_lock:
+                        applied = payload.get("applied") if isinstance(payload.get("applied"), dict) else {}
+                        offrole = payload.get("offrole") if isinstance(payload.get("offrole"), dict) else {}
+                        _save_tracker(applied, offrole)
+                    self._send(200, "application/json; charset=utf-8", b'{"ok":true}')
+                except Exception as e:
+                    self._send(500, "application/json", json.dumps({"error": str(e)}).encode())
             else:
                 self._send(404, "text/plain", b"not found")
 

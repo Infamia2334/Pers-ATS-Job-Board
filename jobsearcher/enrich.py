@@ -36,6 +36,7 @@ imports an external package (requirements.txt: google-genai).
 import json
 import sys
 import time
+import urllib.request
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 try:
@@ -47,19 +48,13 @@ except ImportError:
 
 from .config import (ENRICH_API_KEY, ENRICH_CONCURRENCY, ENRICH_FALLBACK_MODELS,
                      ENRICH_MAX_DESC_CHARS, ENRICH_MAX_JOBS, ENRICH_TIMEOUT,
-                     ENRICH_MODEL)
+                     ENRICH_MODEL, MAX_YOE)
 
-# Official SDK client; key from jobsearcher/config._resolve_enrich_key().
+# Official SDK client or stdlib urllib fallback; key from jobsearcher/config._resolve_enrich_key().
 _AVAILABLE_KEY = bool(ENRICH_API_KEY)
-if genai_sdk is None and _AVAILABLE_KEY:
-    print("NOTE: an API key resolved (env, [enrich].key, or "
-          "[enrich].key_file/.env) but google-genai is not installed — run "
-          "`pip install -r requirements.txt` to enable AI enrichment.",
-          file=sys.stderr)
-
-AVAILABLE = _AVAILABLE_KEY and bool(ENRICH_MODEL) and genai_sdk is not None
+AVAILABLE = _AVAILABLE_KEY and bool(ENRICH_MODEL)
 _CLIENT = None
-if AVAILABLE:
+if AVAILABLE and genai_sdk is not None:
     _CLIENT = genai_sdk.Client(
         api_key=ENRICH_API_KEY,
         http_options=gtypes.HttpOptions(timeout=ENRICH_TIMEOUT * 1000))
@@ -67,12 +62,12 @@ if AVAILABLE:
 _BLANK = {"AI_YOE": "n/a", "AI_Remote": "", "AI_Salary": "",
           "AI_Stack": "", "AI_Note": "", "AI_Done": False}
 
-_INSTRUCTION = """You are annotating a job posting for an engineer who caps at 2 years of
-experience and targets remote-first backend / platform / AI-infra /
-distributed-systems roles. Read the posting below and return ONLY a
-compact JSON object, no markdown, in exactly this shape:
-
-{"stated_yoe": <integer or null — scan the whole posting for years of
+_INSTRUCTION = (
+    f"You are annotating a job posting for an engineer who caps at {MAX_YOE} years of\n"
+    "experience and targets remote-first or relocation/Bengaluru backend / platform / AI-infra /\n"
+    "distributed-systems roles. Read the posting below and return ONLY a\n"
+    "compact JSON object, no markdown, in exactly this shape:\n\n"
+    """{"stated_yoe": <integer or null — scan the whole posting for years of
    experience (digits or words: "3+ years", "two years", "2-4 years",
    "at least 5 yrs"). For a range or "X or more", give the LOWER bound.
    Use the overall professional/relevant experience figure, not years for
@@ -86,6 +81,7 @@ compact JSON object, no markdown, in exactly this shape:
    of prominence"],
  "note": "<one sentence, max 200 chars: what this role is and who it
    fits>"}"""
+)
 
 
 def _payload_text(row: dict) -> str:
@@ -147,19 +143,46 @@ def _annotate(row: dict) -> None:
     for model in [ENRICH_MODEL, *ENRICH_FALLBACK_MODELS]:
         if ENRICH_FALLBACK_MODELS and model != ENRICH_MODEL:
             time.sleep(1)   # brief backoff before a degraded-model retry
-        try:
-            resp = _CLIENT.models.generate_content(
-                model=model,
-                contents=[_payload_text(row)],
-                config=gtypes.GenerateContentConfig(
-                    temperature=0,
-                    response_mime_type="application/json",
-                    max_output_tokens=500),
-            )
-        except Exception:   # 429/5xx/timeout/unit error — try next model
-            continue
-        data = resp.parsed if isinstance(getattr(resp, "parsed", None), dict) \
-            else _parse_json(getattr(resp, "text", ""))
+        data = None
+        if _CLIENT is not None:
+            try:
+                resp = _CLIENT.models.generate_content(
+                    model=model,
+                    contents=[_payload_text(row)],
+                    config=gtypes.GenerateContentConfig(
+                        temperature=0,
+                        response_mime_type="application/json",
+                        max_output_tokens=500),
+                )
+                data = resp.parsed if isinstance(getattr(resp, "parsed", None), dict) \
+                    else _parse_json(getattr(resp, "text", ""))
+            except Exception:   # 429/5xx/timeout/unit error — try next model
+                continue
+        else:
+            try:
+                url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={ENRICH_API_KEY}"
+                body = json.dumps({
+                    "contents": [{"parts": [{"text": _payload_text(row)}]}],
+                    "generationConfig": {
+                        "temperature": 0,
+                        "responseMimeType": "application/json",
+                        "maxOutputTokens": 500,
+                    },
+                }).encode("utf-8")
+                req = urllib.request.Request(
+                    url, data=body, headers={"Content-Type": "application/json"}
+                )
+                with urllib.request.urlopen(req, timeout=ENRICH_TIMEOUT) as r:
+                    raw = json.loads(r.read().decode("utf-8", errors="ignore"))
+                text = (
+                    raw.get("candidates", [{}])[0]
+                    .get("content", {})
+                    .get("parts", [{}])[0]
+                    .get("text", "")
+                )
+                data = _parse_json(text)
+            except Exception:
+                continue
         if data:
             _fill(row, data)
             return

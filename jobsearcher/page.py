@@ -255,6 +255,7 @@ WEB_PAGE = """<!doctype html>
       <button class="clear" id="clearq" title="Clear search">✕</button>
     </div>
     <select id="ats" onchange="render()"><option value="all">All sources</option></select>
+    <select id="pdf" onchange="render()" title="Filter by recommended resume PDF variant for batch applying"><option value="all">All resumes</option></select>
     <select id="aif" onchange="render()" title="Filter by AI annotation">
       <option value="all">Insights: all</option>
       <option value="has">AI annotated only</option>
@@ -329,11 +330,44 @@ const LS = {
   get(k) { try { return JSON.parse(localStorage.getItem(k) || '{}'); } catch (e) { return {}; } },
   set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
 };
-// Storage keys are unchanged from the old tracker — existing marks survive the upgrade.
+// Storage keys are unchanged from the old tracker — existing marks survive the upgrade,
+// and sync with disk (/tracker -> data/tracker.json) so marks survive across browsers.
 let applied = LS.get('appliedJobs');
 let offrole = LS.get('offRoleJobs');
-const saveApplied = () => LS.set('appliedJobs', applied);
-const saveOff = () => LS.set('offRoleJobs', offrole);
+function syncTrackerToDisk() {
+  fetch('/tracker', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ applied, offrole })
+  }).catch(() => {});
+}
+const saveApplied = () => { LS.set('appliedJobs', applied); syncTrackerToDisk(); };
+const saveOff = () => { LS.set('offRoleJobs', offrole); syncTrackerToDisk(); };
+async function loadDiskTracker() {
+  try {
+    const r = await fetch('/tracker', { cache: 'no-store' });
+    if (!r.ok) return;
+    const d = await r.json();
+    let changed = false;
+    if (d && d.applied) {
+      for (const [k, v] of Object.entries(d.applied)) {
+        if (!applied[k]) { applied[k] = v; changed = true; }
+      }
+    }
+    if (d && d.offrole) {
+      for (const [k, v] of Object.entries(d.offrole)) {
+        if (!offrole[k] && !applied[k]) { offrole[k] = v; changed = true; }
+      }
+    }
+    if (changed) {
+      LS.set('appliedJobs', applied);
+      LS.set('offRoleJobs', offrole);
+      render(); renderTracker();
+    } else if (Object.keys(applied).length || Object.keys(offrole).length) {
+      syncTrackerToDisk();
+    }
+  } catch (e) {}
+}
 
 let JOBS = [], SORT = null, DESC = false;
 let renderTimer = null;
@@ -468,6 +502,15 @@ function buildAtsOptions() {
   sel.innerHTML = '<option value="all">All sources</option>' +
     sources.map(s => `<option value="${esc(s)}">${esc(s)} (${JOBS.filter(j => j.ATS === s).length})</option>`).join('');
   if (sources.includes(prev)) sel.value = prev;
+
+  const psel = $('#pdf');
+  if (psel) {
+    const pprev = psel.value;
+    const pdfs = [...new Set(JOBS.map(j => j.Recommended_PDF).filter(Boolean))].sort();
+    psel.innerHTML = '<option value="all">All resumes</option>' +
+      pdfs.map(p => `<option value="${esc(p)}">${esc(p.replace(/\\.pdf$/i, ''))} (${JOBS.filter(j => j.Recommended_PDF === p).length})</option>`).join('');
+    if (pdfs.includes(pprev)) psel.value = pprev;
+  }
 }
 
 function hasInsights(j) {
@@ -493,6 +536,7 @@ function render() {
   const q = $('#filter').value.trim().toLowerCase();
   $('#searchbox').classList.toggle('hasq', !!q);
   const ats = $('#ats').value;
+  const pdf = $('#pdf') ? $('#pdf').value : 'all';
   const aif = $('#aif').value;
   const tbody = $('#rows');
   tbody.innerHTML = '';
@@ -504,11 +548,13 @@ function render() {
     const j = JOBS[i], url = keyOf(j);
     if (q) {
       const hay = (j.Company + ' ' + j.Title + ' ' + j.Location + ' ' + j.ATS + ' '
+        + (j.Recommended_PDF || '') + ' '
         + (j.AI_Stack || '') + ' ' + (j.AI_Salary || '') + ' ' + (j.AI_Remote || '')
         + ' ' + (j.AI_Note || '')).toLowerCase();
       if (!hay.includes(q)) continue;
     }
     if (ats !== 'all' && j.ATS !== ats) continue;
+    if (pdf !== 'all' && j.Recommended_PDF !== pdf) continue;
     if (aif !== 'all') {
       if (aif === 'has') { if (!hasInsights(j)) continue; }
       else if (aif === 'salary') { if (!j.AI_Salary) continue; }
@@ -568,7 +614,9 @@ function rowEl(j, url, q) {
       : '<span class="na">n/a</span>') +
     `</td>` +
     `<td>${esc(j.ATS)}</td>` +
-    `<td class="act"><a class="go" href="${esc(url)}" target="_blank" rel="noopener">Apply ↗</a></td>`;
+    `<td class="act"><a class="go" href="${esc(url)}" target="_blank" rel="noopener">Apply ↗</a>` +
+    (j.Recommended_PDF ? `<div class="stamp" style="color:var(--muted)" title="Recommended Resume PDF">${esc(j.Recommended_PDF.replace(/\\.pdf$/i, ''))}</div>` : '') +
+    `</td>`;
   const [pA, pO] = tr.querySelectorAll('.pill');
   pA.onclick = () => toggleApply(url);
   pO.onclick = () => toggleOff(url);
@@ -689,6 +737,7 @@ document.addEventListener('DOMContentLoaded', () => {
       $('#filter').value = ''; $('#filter').blur(); render();
     }
   });
+  loadDiskTracker();
   refresh(false);  // page load = cache-first; only the button forces a scrape
 });
 </script>

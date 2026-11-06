@@ -14,17 +14,17 @@
 # Personal profile — who the feed is tuned for, and which resume to recommend.
 # -----------------------------------------------------------------------------
 [profile]
-name = ""
+name = "Dipan Das"
 # Shown in the web UI header. `summary` is documentation for future-you.
-headline = "Live engineering openings — auto-scraped and filtered"
-summary = ""
+headline = "Backend, Distributed Systems & AI Infrastructure openings — Bengaluru, Relocation & Global Remote"
+summary = "SDE-2 / Senior Backend & AI Infra (~4-5 YOE) — Node.js/TS, Python, Go, Kafka, gRPC, PostgreSQL, LLM Evals & Guardrails"
 # Postings stating a requirement above this number of years are dropped.
-# Strict mode: "4+ years preferred" is dropped just like "4+ years required".
-years_experience = 2
+# Strict mode: "6+ years preferred" is dropped just like "6+ years required".
+years_experience = 5
 # Master resume for the Recommended_PDF column. Keep personal resume paths
 # out of the published config — point resume_pdf at a generic local path;
 # the file itself lives in the gitignored work/ directory.
-resume_pdf = "work/Resume/resume.pdf"
+resume_pdf = "SE__Backend (BGV).pdf"
 
 # -----------------------------------------------------------------------------
 # Filters — what counts as "a job I want".
@@ -38,23 +38,12 @@ resume_pdf = "work/Resume/resume.pdf"
 [filters]
 # A posting's title must match this AND NOT match role_exclude.
 role_include_keywords = []
-role_include_regex = '\b(backend|back-end|software engineer|member of technical staff|mts|platform|distributed|infrastructure|infra|ai engineer|ai infra|machine learning|ml|llm|systems engineer|sde|product engineer|full[- ]?stack|server|founding|python|node|typescript)\b'
+role_include_regex = '\b(backend|back-end|software engineer|member of technical staff|mts|platform|distributed|infrastructure|infra|ai engineer|ai infra|machine learning|ml|llm|systems engineer|sde|product engineer|full[- ]?stack|server|founding|golang|python|node|typescript)\b'
 
-# Excludes seniority titles (senior/staff/lead/principal/…) because of the
-# ~2 YOE profile — do not remove them. The staff branch matches up to two
-# words between "staff" and "engineer" (Staff Software/Product/Data/…/
-# Engineer, or Staff SDE/SWE) but NOT bare `staff`: a bare `staff` branch
-# would also kill mid-level "Member of Technical Staff" titles. Extend the
-# `{0,2}` count if you ever see "Staff A B C Engineer" slipping through.
-# The java branch kills any title NAMED after Java (Java Developer, Java
-# Software Engineer, "Backend (Java)") — safe because this regex only ever
-# sees the title, never the description stack. `(?:ml|machine learning)
-# engineer` kills the generic ML-modeling title family; infra-flavored
-# titles ("ML Runtime and Kernel Engineer", "ML Ops Engineer", "Machine
-# Learning & Cloud Infra Engineer") survive because of the word(s) between
-# "ml/ML" and "engineer".
+# Excludes staff+/management/entry-level/non-backend titles while KEEPING
+# SDE-2 / SWE II / III / Senior Software Engineer for a ~4-5 YOE profile.
 role_exclude_keywords = []
-role_exclude_regex = '\b(ios|android|mobile|frontend only|front-end only|account executive|sales|marketing|gtm|recruiter|legal|finance|counsel|designer|copywriter|customer success|support engineer|architect|intern|director|principal|manager|vp|head of|distinguished|lead|senior|sr|staff(?: \w[\w-]*){0,2} engineer|staff sde|staff swe|java|core ml|(?:ml|machine learning) (?:engineer|developer|dev))\b'
+role_exclude_regex = '\b(ios|android|mobile|frontend only|front-end only|account executive|sales|marketing|gtm|recruiter|legal|finance|counsel|designer|copywriter|customer success|support engineer|architect|intern|internship|new grad|graduate|entry level|junior|jr|apprentice|trainee|fresher|director|principal|manager|management|vp|vice president|head of|chief|distinguished|fellow|em|tpm|scrum|agile|lead|team lead|tech lead|in test|sdet|qa|quality assurance|security engineer|researcher|research scientist|scientist|staff(?: \w[\w-]*){0,2} engineer|staff sde|staff swe|java|core ml|(?:ml|machine learning) (?:engineer|developer|dev))\b'
 
 # The posting's location must match this AND NOT match location_exclude.
 location_include_keywords = []
@@ -67,14 +56,14 @@ location_exclude_regex = '\b(us only|us-only|united states only|us-remote|americ
 
 # Years-of-experience cap. Matches description text like "3+ years",
 # "5 years", "3-5 years"; the lower bound is what disqualifies.
-max_years_experience = 2
+max_years_experience = 5
 
 # Sort priority, highest tier first — a posting matching an earlier tier's
 # keyword sorts above later tiers. Order of the outer list is the priority.
 location_priority_tiers = [
-    ["remote", "global", "anywhere"],
     ["bengaluru", "bangalore", "gurgaon", "gurugram", "india"],
     ["bangkok", "singapore", "amsterdam", "berlin", "tallinn", "tokyo", "london"],
+    ["remote", "global", "anywhere"],
 ]
 
 # -----------------------------------------------------------------------------

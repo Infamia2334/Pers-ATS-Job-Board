@@ -14,6 +14,8 @@ from .config import (CFG, CONFIG_PATH, MAX_WORKERS, PREVIEW_COUNT,
 from .fetch import fetch_json, fetch_text
 from .sources import _zoho_site_entries
 from .engine import collect_jobs
+from .web import _save_snapshot, _load_snapshot
+import time
 
 CSV_FIELDNAMES = ["ATS", "Company", "Title", "Location", "Max_Stated_YOE",
                   "AI_YOE", "AI_Remote", "AI_Salary", "AI_Stack", "AI_Note",
@@ -21,7 +23,10 @@ CSV_FIELDNAMES = ["ATS", "Company", "Title", "Location", "Max_Stated_YOE",
 
 
 def main():
-    all_jobs = collect_jobs()
+    snap = _load_snapshot()
+    prev_jobs = snap[0] if snap else None
+    all_jobs = collect_jobs(prev_jobs=prev_jobs)
+    _save_snapshot(all_jobs, time.time(), time.strftime("%H:%M", time.localtime()))
 
     # Default to a CSV next to this script; config [run].live_feed_path then
     # env LIVE_FEED_PATH override, in that order.

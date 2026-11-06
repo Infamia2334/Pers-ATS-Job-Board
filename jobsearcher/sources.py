@@ -26,6 +26,36 @@ from .config import (CFG, RESUME_PDF, ROLE_REGEX, EXCLUDE_ROLE_REGEX,
                      stated_max_years, description_text)
 
 
+_AI_RE = re.compile(
+    r"\b(ai|llm|agent|agentic|rag|eval|evals|voice|ml|machine learning|"
+    r"genai|inference|langchain|langfuse|vector|embedding|prompt)\b",
+    re.I,
+)
+_STARTUP_SOURCES = {"Ashby", "YC", "HN"}
+_AI_COMPANIES = {
+    "cardboard", "composio", "sarvam", "perplexity", "elevenlabs", "deepgram",
+    "retell-ai", "vapi", "bland", "browserbase", "e2b", "exa", "mem0",
+    "braintrust", "ema", "sierra", "decagon", "harvey", "weaviate", "mastra",
+    "cerebras", "lambda", "runpod", "cohere", "openrouter", "cursor",
+    "primeintellect", "pinecone", "factory", "cognition", "baseten",
+    "fireworks", "modal", "yellow.ai",
+}
+
+
+def recommend_pdf(ats: str, company: str, title: str, desc: str = "") -> str:
+    """Route each role to the right tailored resume variant (Archetype A/B × Startup/BGV)."""
+    co_lower = (company or "").strip().lower()
+    is_ai = bool(_AI_RE.search(f"{title} {company}")) or co_lower in _AI_COMPANIES
+    is_startup = ats in _STARTUP_SOURCES
+    if is_ai and is_startup:
+        return "SE__AI_Backend (Startups).pdf"
+    if is_ai and not is_startup:
+        return "SE__AI_Backend (BGV).pdf"
+    if is_startup:
+        return "SE__Backend (Startups).pdf"
+    return "SE__Backend (BGV).pdf"
+
+
 def _row(ats: str, company: str, title: str, loc: str, stated_yoe, url: str,
          desc: str = "") -> dict:
     """Normalized row shape shared by every source.
@@ -41,7 +71,7 @@ def _row(ats: str, company: str, title: str, loc: str, stated_yoe, url: str,
         "Title": title,
         "Location": loc,
         "Max_Stated_YOE": stated_yoe if stated_yoe is not None else "n/a",
-        "Recommended_PDF": RESUME_PDF,
+        "Recommended_PDF": recommend_pdf(ats, company, title, desc),
         "Direct_Apply_URL": url,
     }
     if desc:
